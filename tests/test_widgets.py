@@ -1,6 +1,7 @@
 # most of the tests don't destroy the widgets they use, all widgets are
 # destroyed the next time quit() is called or python exits anyway
 import contextlib
+import platform
 import itertools
 import os
 import pythotk as tk
@@ -120,6 +121,9 @@ def test_window_closing():
         assert not window.winfo_exists()
 
 
+@pytest.mark.skipif(platform.system() == "Windows",
+                    reason=("actual windows window manager behavior"
+                            "is different than the test expects"))
 def test_geometry():
     window = tk.Window()
 
@@ -140,6 +144,7 @@ def test_geometry():
     assert window.geometry() == (300, 400, 123, 456)
 
     window.geometry(100, 200, 300, 400)
+    #lintplox
     tk.update()
     assert window.geometry() == (100, 200, 300, 400)
 
