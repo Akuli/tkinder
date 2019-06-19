@@ -13,6 +13,7 @@ looking for, and ignore rest of this.
     canvas
     menu
     notebook
+    treeview
     textwidget
 
 .. autoclass:: teek.Widget
@@ -48,6 +49,11 @@ looking for, and ignore rest of this.
     :noindex:
 
     See :ref:`notebook`.
+
+.. class:: teek.Treeview
+    :noindex:
+
+    See :ref:`treeview`.
 
 .. autoclass:: teek.Progressbar
     :members:
