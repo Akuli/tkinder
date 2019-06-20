@@ -108,7 +108,7 @@ class TreeviewColumn:
     .. attribute:: config
 
         Similar to the ``config`` attribute that widgets have. The available
-        options can be seen at the ``column`` and ``heading`` command section 
+        options can be seen at the ``column`` and ``heading`` command section
         in :man:`ttk_treeview(3tk)`.
     """
 
@@ -179,7 +179,7 @@ class TreeviewColumn:
 class TreeviewRow:
     """
     Represents a row of a treeview widget or one which is ready to be added
-    to a treeview widget. The row holds all the column values and additional 
+    to a treeview widget. The row holds all the column values and additional
     options like title text or icon.
 
     If you create a :class:`TreeviewRow` instance, it is not initially
