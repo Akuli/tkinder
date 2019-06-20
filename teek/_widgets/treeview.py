@@ -134,7 +134,7 @@ class TreeviewColumn:
             'command': self._create_click_command
         })
         self.config._fallbacks.update({
-            'anchor': 'center'
+            'anchor': 'center' # default value
         })
         self.config._handlers.update({
             'text': self._heading_handler,
@@ -169,10 +169,12 @@ class TreeviewColumn:
 
     @make_thread_safe
     def assign(self, treeview):
+        # Assign column to given treeview
         self._treeview = treeview
 
     @make_thread_safe
     def to_tcl(self):
+        # Only name in column list
         return self._name
 
 
@@ -250,10 +252,12 @@ class TreeviewRow:
 
     @make_thread_safe
     def assign(self, treeview):
+        # Assign row to given treeview
         self._treeview = treeview
 
     @make_thread_safe
     def to_tcl(self):
+        # Represented by name
         return self._name
 
     @make_thread_safe
@@ -272,9 +276,14 @@ class TreeviewRow:
 
 
 class TreeviewColumnList(MutableSequence):
+    """
+    List containing all columns of a treeview
+    """
+
     def __init__(self, treeview):
         super().__init__()
 
+        # Default column 0
         self._data = [TreeviewColumn('#0', treeview=treeview)]
         self._treeview = treeview
 
@@ -296,9 +305,13 @@ class TreeviewColumnList(MutableSequence):
         return self._data[index]
 
     def __len__(self):
+        # Length includes column 0
         return len(self._data)
 
     def _update(self):
+        """
+        Update columns of widget and rebuild column objects
+        """
         self._treeview._call(None, self._treeview, 'configure', '-columns',
                              self._data[1:])
 
@@ -306,9 +319,14 @@ class TreeviewColumnList(MutableSequence):
             column.config.push()
 
     def insert(self, index, column):
+        """
+        Insert column or column text converted to a column at given index.
+        Note that the column at index 0 cannot be replaced!
+        """
         if index == 0:
             raise KeyError('cannot insert column at index 0')
 
+        # Convert to column
         if not isinstance(column, TreeviewColumn):
             column = TreeviewColumn(text=column)
 
@@ -318,6 +336,10 @@ class TreeviewColumnList(MutableSequence):
 
 
 class TreeviewRowList(MutableSequence):
+    """
+    List containing all rows of a treeview
+    """
+
     def __init__(self, treeview):
         super().__init__()
 
@@ -338,6 +360,10 @@ class TreeviewRowList(MutableSequence):
         return len(self._data)
 
     def insert(self, index, row):
+        """
+        Insert a row or values converted to a row at the given index.
+        """
+        # Convert to row
         if not isinstance(row, TreeviewRow):
             row = TreeviewRow(values=row)
 
@@ -348,6 +374,9 @@ class TreeviewRowList(MutableSequence):
         self._data.insert(index, row)
 
     def move(self, from_pos, to_pos):
+        """
+        Move row at index to other position
+        """
         row = self._data[from_pos]
         del self[from_pos]
         self.insert(to_pos, row)
