@@ -30,15 +30,15 @@ class FallbackConfigDict(ConfigDict):
             # Set value of fallback
             self._fallbacks[option] = value
             # Look for handler function(s)
-            handlers = self._handlers[option] if option in self._handlers \
-                       else self._handlers['*']
-            
+            handlers = (self._handlers[option] if option in self._handlers
+                        else self._handlers['*'])
+
             if not isinstance(handlers, Iterable):
                 handlers = [handlers]
 
             for handler in handlers:
                 handler(None, option, value)
-        except:
+        except Exception:
             pass
 
     def _get(self, option):
@@ -47,17 +47,17 @@ class FallbackConfigDict(ConfigDict):
 
         try:
             # Look for handler function
-            handler = self._handlers[option] if option in self._handlers \
-                      else self._handlers['*']
+            handler = (self._handlers[option]
+                       if option in self._handlers else self._handlers['*'])
 
             if isinstance(handler, Iterable):
                 handler = handler[0]
 
             return handler(self._types.get(option, str), option)
-        except Exception as ex:
+        except Exception:
             # If exception, return fallback value
-            return self._fallbacks[option] if option in self._fallbacks \
-                   else None
+            return (self._fallbacks[option]
+                    if option in self._fallbacks else None)
 
     def _list_options(self):
         return self._handlers.keys()
@@ -96,19 +96,20 @@ class TreeviewColumn:
     ::
 
         treeview.columns.append('title')
-    
+
     ...which is exactly the same as this:
     ::
 
         treeview.columns.append(teek.TreeviewColumn(title='title'))
 
     There are never multiple :class:`TreeviewColumn` objects that represent the
-    same tab.
+    same column.
 
     .. attribute:: config
 
         Similar to the ``config`` attribute that widgets have. The available
-        options are documented as ``TAB OPTIONS`` in :man:`ttk_treeview(3tk)`.
+        options can be seen at the ``column`` and ``heading`` command section 
+        in :man:`ttk_treeview(3tk)`.
     """
 
     next_col_num = 0
@@ -153,10 +154,12 @@ class TreeviewColumn:
         )
 
     def _heading_handler(self, rettype, option, *args):
-        return self._treeview._call(rettype, self._treeview, 'heading', self, '-' + option, *args)
+        return self._treeview._call(rettype, self._treeview, 'heading', self,
+                                    '-' + option, *args)
 
     def _column_handler(self, rettype, option, *args):
-        return self._treeview._call(rettype, self._treeview, 'column', self, '-' + option, *args)
+        return self._treeview._call(rettype, self._treeview, 'column', self,
+                                    '-' + option, *args)
 
     def _create_click_command(self):
         result = teek.Callback()
@@ -174,6 +177,41 @@ class TreeviewColumn:
 
 
 class TreeviewRow:
+    """
+    Represents a row of a treeview widget or one which is ready to be added
+    to a treeview widget. The row holds all the column values and additional 
+    options like title text or icon.
+
+    If you create a :class:`TreeviewRow` instance, it is not initially
+    connected to a :class:`Treeview`. This is automatically done when it is
+    appended to the *row* list of the :class:`Treeview` instance like this:
+    ::
+
+        treeview.rows.append(teek.TreeviewRow())
+
+    A row can be created without any arguments. Then the name of the row
+    is automatically generated. If the first argument is given, then this name
+    is taken.
+
+    For convenience, a column can also be created using...
+    ::
+
+        treeview.rows.append(['a', 'b', 'c'])
+
+    ...which is exactly the same as this:
+    ::
+
+        treeview.rows.append(teek.TreeviewRow(values=['a', 'b', 'c']))
+
+    There are never multiple :class:`TreeviewRow` objects that represent the
+    same row.
+
+    .. attribute:: config
+
+        Similar to the ``config`` attribute that widgets have. The available
+        options are documented as ``ITEM OPTIONS`` in :man:`ttk_treeview(3tk)`.
+    """
+
     next_row_num = 0
 
     @make_thread_safe
@@ -207,7 +245,8 @@ class TreeviewRow:
         )
 
     def _item_handler(self, rettype, option, *args):
-        return self._treeview._call(rettype, self._treeview, 'item', self, '-' + option, *args)
+        return self._treeview._call(rettype, self._treeview, 'item', self,
+                                    '-' + option, *args)
 
     @make_thread_safe
     def assign(self, treeview):
@@ -219,10 +258,16 @@ class TreeviewRow:
 
     @make_thread_safe
     def select(self):
+        """
+        Add row to current selection
+        """
         self._treeview._call(None, self._treeview, 'selection', 'add', self)
 
     @make_thread_safe
     def deselect(self):
+        """
+        Remove row from current selection
+        """
         self._treeview._call(None, self._treeview, 'selection', 'remove', self)
 
 
@@ -254,7 +299,8 @@ class TreeviewColumnList(MutableSequence):
         return len(self._data)
 
     def _update(self):
-        self._treeview._call(None, self._treeview, 'configure', '-columns', self._data[1:])
+        self._treeview._call(None, self._treeview, 'configure', '-columns',
+                             self._data[1:])
 
         for column in self._data:
             column.config.push()
@@ -296,7 +342,8 @@ class TreeviewRowList(MutableSequence):
             row = TreeviewRow(values=row)
 
         row.assign(self._treeview)
-        self._treeview._call(None, self._treeview, 'insert', '', index, '-id', row)
+        self._treeview._call(None, self._treeview, 'insert', '', index, '-id',
+                             row)
         row.config.push()
         self._data.insert(index, row)
 
@@ -326,7 +373,8 @@ class Treeview(ChildMixin, Widget):
         })
 
     def _repr_parts(self):
-        return ["contains %d columns & %d rows" % (len(self.columns), len(self.rows))]
+        return ["contains %d columns & %d rows" % (len(self.columns),
+                                                   len(self.rows))]
 
     def _xview_or_yview(self, xview_or_yview, *args):
         if not args:
@@ -339,11 +387,17 @@ class Treeview(ChildMixin, Widget):
     yview = functools.partialmethod(_xview_or_yview, 'yview')
 
     def sort(self, column_pos, reverse=False):
+        """
+        Sort all rows according to value of column with given ``column_pos``.
+        The direction of the sorting can be set with ``reverse``. If this value
+        is true, the rows are sorted in ascending order.
+        """
         if column_pos < 1:
             raise KeyError('column position must be greater or equal 1')
 
         sorted_rows = self.rows._data.copy()
-        sorted_rows.sort(key=lambda r: r.config['values'][column_pos-1], reverse=reverse)
+        sorted_rows.sort(key=lambda r: r.config['values'][column_pos - 1],
+                         reverse=reverse)
 
         for old, row in enumerate(self.rows):
             self.rows.move(old, sorted_rows.index(row))

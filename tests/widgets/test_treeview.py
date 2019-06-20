@@ -10,13 +10,17 @@ def test_reprs():
     row = teek.TreeviewRow('testrow', text='Row', values=values)
 
     assert repr(col) == "TreeviewColumn('testcol', text='Test')"
-    assert repr(row) == "TreeviewRow('testrow', text='Row', values=" + repr(values) + ")"
+    assert repr(row) == "TreeviewRow('testrow', text='Row', values=" \
+                        + repr(values) + ")"
 
-    assert repr(treeview) == '<teek.Treeview widget: contains 1 columns & 0 rows>'
+    assert repr(treeview) == '<teek.Treeview widget: contains 1 columns ' \
+                             '& 0 rows>'
     treeview.rows.append(row)
-    assert repr(treeview) == '<teek.Treeview widget: contains 1 columns & 1 rows>'
+    assert repr(treeview) == '<teek.Treeview widget: contains 1 columns ' \
+                             '& 1 rows>'
     treeview.columns.append(col)
-    assert repr(treeview) == '<teek.Treeview widget: contains 2 columns & 1 rows>'
+    assert repr(treeview) == '<teek.Treeview widget: contains 2 columns ' \
+                             '& 1 rows>'
 
 
 def test_fallback_config_dict():
@@ -40,6 +44,7 @@ def test_fallback_config_dict():
     assert config['test'] == ''
     config._handlers['test'] = success_handler
     assert config['test'] == 'success'
+
 
 def test_treeview_columns_creation():
     treeview = teek.Treeview(teek.Window())
