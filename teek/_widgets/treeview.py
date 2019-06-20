@@ -134,7 +134,8 @@ class TreeviewColumn:
             'command': self._create_click_command
         })
         self.config._fallbacks.update({
-            'anchor': 'center' # default value
+            # default value
+            'anchor': 'center'
         })
         self.config._handlers.update({
             'text': self._heading_handler,
