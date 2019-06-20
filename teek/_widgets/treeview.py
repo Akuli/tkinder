@@ -397,6 +397,7 @@ class Treeview(ChildMixin, Widget):
 
         treeview.rows.move(2, 0) # move row at index 2 to index 0
 
+    Manual page: :man:`ttk_treeview(3tk)`
     """
 
     _widget_name = 'ttk::treeview'
