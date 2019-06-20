@@ -354,6 +354,22 @@ class TreeviewRowList(MutableSequence):
 
 
 class Treeview(ChildMixin, Widget):
+    """
+    This is the treeview widget.
+
+    :class:`TreeviewRow` and :class:`TreeviewColumn` objects can be added to
+    this widget by calling ``insert`` or ``append`` of the ``rows`` or
+    ``column`` property. In general, these properties behave like a
+    :class:`list` of :class:`TreeviewRow` or :class:`TreeviewColumn` objects.
+
+    If you want to move a row, use the ``move`` method of the ``rows`` property
+    like this:
+    ::
+
+        treeview.rows.move(2, 0) # move row at index 2 to index 0
+
+    """
+
     _widget_name = 'ttk::treeview'
     tk_class_name = 'Treeview'
 
