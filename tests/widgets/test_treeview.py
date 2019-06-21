@@ -185,3 +185,9 @@ def test_treeview_tcl():
 
     assert col.to_tcl() == 'testcol'
     assert row.to_tcl() == 'testrow'
+
+
+def test_treeview_scroll():
+    treeview = teek.Treeview(teek.Window())
+    assert treeview.xview() == (0.0, 1.0)
+    assert treeview.yview() == (0.0, 1.0)

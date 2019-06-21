@@ -23,9 +23,6 @@ class FallbackConfigDict(ConfigDict):
         self._fallbacks = {}
 
     def _set(self, option, value):
-        if option not in self._types:
-            raise KeyError('option %s not existing' % option)
-
         try:
             # Set value of fallback
             self._fallbacks[option] = value
@@ -42,9 +39,6 @@ class FallbackConfigDict(ConfigDict):
             pass
 
     def _get(self, option):
-        if option not in self._types:
-            raise KeyError('option %s not found' % option)
-
         try:
             # Look for handler function
             handler = (self._handlers[option]
@@ -60,7 +54,7 @@ class FallbackConfigDict(ConfigDict):
                     if option in self._fallbacks else None)
 
     def _list_options(self):
-        return self._handlers.keys()
+        return self._types.keys()
 
     def _check_option(self, option):
         # Only check if master handler function is not defined
