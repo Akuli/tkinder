@@ -29,6 +29,7 @@ Currently these tkinter widgets are missing in teek:
 * ``tkinter.Radiobutton``, ``tkinter.ttk.Radiobutton``
 * ``tkinter.Scale``, ``tkinter.ttk.Scale``
 * ``tkinter.ttk.Sizegrip``
+* ``tkinter.Spinbox``
 
 If the project uses some of these, you can still use them with
 :ref:`Tcl calls <tcl-calls>`. However, that's kind of painful, so if the
