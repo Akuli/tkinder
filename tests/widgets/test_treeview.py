@@ -189,5 +189,8 @@ def test_treeview_tcl():
 
 def test_treeview_scroll():
     treeview = teek.Treeview(teek.Window())
+
     assert treeview.xview() == (0.0, 1.0)
     assert treeview.yview() == (0.0, 1.0)
+    treeview.xview('moveto', 0.5)
+    treeview.yview('moveto', 0.5)
