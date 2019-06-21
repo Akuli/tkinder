@@ -261,6 +261,14 @@ class TreeviewRow:
         # Represented by name
         return self._name
 
+    @property
+    def selected(self):
+        """
+        Get current selection state
+        """
+        return self._name in self._treeview._call([str], self._treeview,
+                                                  'selection')
+
     @make_thread_safe
     def select(self):
         """

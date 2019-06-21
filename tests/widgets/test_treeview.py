@@ -30,6 +30,9 @@ def test_fallback_config_dict():
     def success_handler(rettype, option, value=None):
         return 'success'
 
+    def success2_handler(rettype, option, value=None):
+        return 'success'
+
     config = teek._widgets.treeview.FallbackConfigDict()
     config._types['test'] = str
     config._fallbacks['test'] = ''
@@ -43,6 +46,8 @@ def test_fallback_config_dict():
 
     assert config['test'] == ''
     config._handlers['test'] = success_handler
+    assert config['test'] == 'success'
+    config._handlers['test'] = [success_handler, success2_handler]
     assert config['test'] == 'success'
 
 
@@ -137,6 +142,17 @@ def test_treeview_rows_move():
     assert treeview.rows[1].config['values'] == ['a']
 
 
+def test_treeview_row_selection():
+    treeview = teek.Treeview(teek.Window())
+    treeview.rows.append(['a'])
+
+    assert not treeview.rows[0].selected
+    treeview.rows[0].select()
+    assert treeview.rows[0].selected
+    treeview.rows[0].deselect()
+    assert not treeview.rows[0].selected
+
+
 def test_treeview_sort():
     treeview = teek.Treeview(teek.Window())
     treeview.rows.append(['b'])
@@ -147,6 +163,10 @@ def test_treeview_sort():
     assert treeview.rows[0].config['values'] == ['b']
     assert treeview.rows[1].config['values'] == ['a']
     assert treeview.rows[2].config['values'] == ['c']
+
+    with pytest.raises(KeyError):
+        treeview.sort(0)
+
     treeview.sort(1, reverse=False)
     assert len(treeview.rows) == 3
     assert treeview.rows[0].config['values'] == ['a']
