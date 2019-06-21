@@ -54,7 +54,7 @@ class FallbackConfigDict(ConfigDict):
                     if option in self._fallbacks else None)
 
     def _list_options(self):
-        return self._types.keys()
+        return set(list(self._types.keys()) + list(self._special.keys()))
 
     def _check_option(self, option):
         # Only check if master handler function is not defined
