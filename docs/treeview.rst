@@ -49,7 +49,7 @@ treeview.
 The *rows* and *columns* attributes of the :class:`.Treeview` behave like normal
  lists and therefore, items can be inserted and deleted as with lists. The only 
 exceptions are considering the direct setting of rows (*__setitem__*) and the 
-manipulation of the first column which is both prohibited. 
+manipulation of the first column which are both prohibited. 
 
 Here is some reference:
 
