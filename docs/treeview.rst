@@ -13,12 +13,8 @@ Let's look at an example.
     import teek
 
     window = teek.Window('Treeview Example')
-    treeview = teek.Treeview(window)
+    treeview = teek.Treeview(window, columns=['forename', 'surname', 'age'])
     treeview.pack(fill='both', expand=True)
-
-    treeview.columns.append('forename')
-    treeview.columns.append('surname')
-    treeview.columns.append('age')
 
     treeview.rows.append(['John', 'Star', 32])
     treeview.rows.append(['Patrick', 'Tram', 19])
@@ -48,8 +44,7 @@ treeview.
 
 The *rows* and *columns* attributes of the :class:`.Treeview` behave like normal
  lists and therefore, items can be inserted and deleted as with lists. The only 
-exceptions are considering the direct setting of rows (*__setitem__*) and the 
-manipulation of the first column which are both prohibited. 
+exception is the manipulation of the first column which is prohibited. 
 
 Here is some reference:
 

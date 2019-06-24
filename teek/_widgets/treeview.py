@@ -7,10 +7,10 @@ from teek._structures import ConfigDict
 from teek._tcl_calls import make_thread_safe
 
 
-class FallbackConfigDict(ConfigDict):
+class MultiHandlerConfigDict(ConfigDict):
     """
-    Config dictionary which uses fallback values if the given handler
-    function cannot be executed
+    Config dictionary which allows multiple handler functions for getting and
+    setting options
     """
 
     def __init__(self):
@@ -19,61 +19,36 @@ class FallbackConfigDict(ConfigDict):
         # Handler functions
         self._handlers = {}
 
-        # Fallback values (used if handler function cannot be executed)
-        self._fallbacks = {}
-
     def _set(self, option, value):
-        try:
-            # Set value of fallback
-            self._fallbacks[option] = value
-            # Look for handler function(s)
-            handlers = (self._handlers[option] if option in self._handlers
-                        else self._handlers['*'])
+        handlers = (self._handlers[option] if option in self._handlers
+                    else self._handlers['*'])
 
-            if not isinstance(handlers, Iterable):
-                handlers = [handlers]
+        if not isinstance(handlers, Iterable):
+            handlers = [handlers]
 
-            for handler in handlers:
-                handler(None, option, value)
-        except Exception:
-            pass
+        for handler in handlers:
+            handler(None, option, value)
 
     def _get(self, option):
-        try:
-            # Look for handler function
-            handler = (self._handlers[option]
-                       if option in self._handlers else self._handlers['*'])
+        handler = (self._handlers[option]
+                   if option in self._handlers else self._handlers['*'])
 
-            if isinstance(handler, Iterable):
-                handler = handler[0]
+        if isinstance(handler, Iterable):
+            handler = handler[0]
 
-            return handler(self._types.get(option, str), option)
-        except Exception:
-            # If exception, return fallback value
-            return (self._fallbacks[option]
-                    if option in self._fallbacks else None)
+        return handler(self._types.get(option, str), option)
 
     def _list_options(self):
-        return set(list(self._types.keys()) + list(self._special.keys()))
-
-    def _check_option(self, option):
-        # Only check if master handler function is not defined
-        if '*' not in self._list_options():
-            super()._check_option(option)
-
-    def push(self):
-        """
-        Update all values (specified in fallback dict) on remote side
-        """
-        for option, value in self._fallbacks.items():
-            self._set(option, value)
+        return set(list(self._types.keys()) + list(
+            self._special.keys()) + list(self._special_values.keys()))
 
 
 class TreeviewColumn:
     """
     Represents a column of a treeview widget or one which is ready to be added
     to a treeview widget. A column specifies the title, content anchor and size
-    options.
+    options. Please note that options can only be set or retrieved if the
+    column is connected to a :class:`Treeview`.
 
     If you create a :class:`TreeviewColumn` instance, it is not initially
     connected to a :class:`Treeview`. This is automatically done when it is
@@ -109,13 +84,14 @@ class TreeviewColumn:
     next_col_num = 0
 
     @make_thread_safe
-    def __init__(self, name=None, command=None, **kwargs):
+    def __init__(self, name=None, **kwargs):
         self._name = name or 'C%d' % TreeviewColumn.next_col_num
-        self._treeview = kwargs.pop('treeview', None)
+        self._creation_opts = kwargs
+        self._treeview = None
 
         TreeviewColumn.next_col_num += 1
 
-        self.config = FallbackConfigDict()
+        self.config = MultiHandlerConfigDict()
         self.config._types.update({
             'text': str,
             'anchor': str,
@@ -127,10 +103,6 @@ class TreeviewColumn:
         self.config._special.update({
             'command': self._create_click_command
         })
-        self.config._fallbacks.update({
-            # default value
-            'anchor': 'center'
-        })
         self.config._handlers.update({
             'text': self._heading_handler,
             'image': self._heading_handler,
@@ -138,21 +110,34 @@ class TreeviewColumn:
             '*': self._column_handler
         })
 
-        for name, value in kwargs.items():
-            self.config[name] = value
-
     def __repr__(self):
-        return "%s('%s', text='%s')" % (
-            self.__class__.__name__,
-            self._name,
-            self.config['text']
-        )
+        if self._treeview:
+            parts = "text='%s'" % self.config['text']
+        else:
+            parts = 'not added to treeview'
+
+        return "%s('%s', %s)" % (self.__class__.__name__, self._name, parts)
+
+    def _check_added(self):
+        if self._treeview is None:
+            raise RuntimeError(
+                "this column hasn't been added to a treeview yet")
 
     def _heading_handler(self, rettype, option, *args):
+        self._check_added()
+
+        if args:
+            self._creation_opts[option] = args[0]
+
         return self._treeview._call(rettype, self._treeview, 'heading', self,
                                     '-' + option, *args)
 
     def _column_handler(self, rettype, option, *args):
+        self._check_added()
+
+        if args:
+            self._creation_opts[option] = args[0]
+
         return self._treeview._call(rettype, self._treeview, 'column', self,
                                     '-' + option, *args)
 
@@ -163,9 +148,16 @@ class TreeviewColumn:
         return result
 
     @make_thread_safe
-    def assign(self, treeview):
+    def _assign(self, treeview):
         # Assign column to given treeview
         self._treeview = treeview
+        command_handler = self._creation_opts.pop('command', None)
+
+        if command_handler:
+            self.config['command'].connect(command_handler)
+
+        for name, value in self._creation_opts.items():
+            self.config[name] = value
 
     @make_thread_safe
     def to_tcl(self):
@@ -177,7 +169,9 @@ class TreeviewRow:
     """
     Represents a row of a treeview widget or one which is ready to be added
     to a treeview widget. The row holds all the column values and additional
-    options like title text or icon.
+    options like title text or icon. Like a :class:`TreeviewColumn`, options
+    can only be get/set or methods can be executed if the :class:`TreeviewRow`
+    is connected to a :class:`Treeview`.
 
     If you create a :class:`TreeviewRow` instance, it is not initially
     connected to a :class:`Treeview`. This is automatically done when it is
@@ -213,12 +207,13 @@ class TreeviewRow:
 
     @make_thread_safe
     def __init__(self, name=None, **kwargs):
-        self._treeview = kwargs.pop('treeview', None)
         self._name = name or 'R%d' % TreeviewRow.next_row_num
+        self._creation_opts = kwargs
+        self._treeview = None
 
         TreeviewRow.next_row_num += 1
 
-        self.config = FallbackConfigDict()
+        self.config = MultiHandlerConfigDict()
         self.config._types.update({
             'values': [str],
             'text': str,
@@ -230,25 +225,34 @@ class TreeviewRow:
             '*': self._item_handler
         })
 
-        for name, value in kwargs.items():
-            self.config[name] = value
-
     def __repr__(self):
-        return "%s('%s', text='%s', values=%s)" % (
-            self.__class__.__name__,
-            self._name,
-            self.config['text'],
-            repr(self.config['values'])
-        )
+        if self._treeview:
+            parts = "text='%s', values=%s" % (
+                self.config['text'],
+                repr(self.config['values'])
+            )
+        else:
+            parts = 'not added to treeview'
+
+        return "%s('%s', %s)" % (self.__class__.__name__, self._name, parts)
+
+    def _check_added(self):
+        if self._treeview is None:
+            raise RuntimeError(
+                "this column hasn't been added to a treeview yet")
 
     def _item_handler(self, rettype, option, *args):
+        self._check_added()
         return self._treeview._call(rettype, self._treeview, 'item', self,
                                     '-' + option, *args)
 
     @make_thread_safe
-    def assign(self, treeview):
+    def _assign(self, treeview):
         # Assign row to given treeview
         self._treeview = treeview
+
+        for name, value in self._creation_opts.items():
+            self.config[name] = value
 
     @make_thread_safe
     def to_tcl(self):
@@ -260,6 +264,7 @@ class TreeviewRow:
         """
         Get current selection state
         """
+        self._check_added()
         return self._name in self._treeview._call([str], self._treeview,
                                                   'selection')
 
@@ -268,6 +273,7 @@ class TreeviewRow:
         """
         Add row to current selection
         """
+        self._check_added()
         self._treeview._call(None, self._treeview, 'selection', 'add', self)
 
     @make_thread_safe
@@ -275,6 +281,7 @@ class TreeviewRow:
         """
         Remove row from current selection
         """
+        self._check_added()
         self._treeview._call(None, self._treeview, 'selection', 'remove', self)
 
 
@@ -283,16 +290,25 @@ class TreeviewColumnList(MutableSequence):
     List containing all columns of a treeview
     """
 
-    def __init__(self, treeview):
+    def __init__(self, treeview, init_columns=[]):
         super().__init__()
 
         # Default column 0
-        self._data = [TreeviewColumn('#0', treeview=treeview)]
+        first_column = TreeviewColumn('#0')
+        first_column._assign(treeview)
+
+        self._data = [first_column]
         self._treeview = treeview
+
+        for column in init_columns:
+            self.append(column)
 
     def __setitem__(self, index, column):
         if index == 0:
             raise KeyError('cannot set column #0')
+
+        if not isinstance(column, TreeviewColumn):
+            column = TreeviewColumn(text=column)
 
         self._data[index] = column
         self._update()
@@ -319,7 +335,7 @@ class TreeviewColumnList(MutableSequence):
                              self._data[1:])
 
         for column in self._data:
-            column.config.push()
+            column._assign(self._treeview)
 
     def insert(self, index, column):
         """
@@ -333,7 +349,6 @@ class TreeviewColumnList(MutableSequence):
         if not isinstance(column, TreeviewColumn):
             column = TreeviewColumn(text=column)
 
-        column.assign(self._treeview)
         self._data.insert(index, column)
         self._update()
 
@@ -343,17 +358,21 @@ class TreeviewRowList(MutableSequence):
     List containing all rows of a treeview
     """
 
-    def __init__(self, treeview):
+    def __init__(self, treeview, init_rows=[]):
         super().__init__()
 
         self._data = []
         self._treeview = treeview
 
+        for row in init_rows:
+            self.append(row)
+
     def __getitem__(self, index):
         return self._data[index]
 
     def __setitem__(self, index, row):
-        raise NotImplementedError('use insert() instead')
+        del self[index]
+        self.insert(index, row)
 
     def __delitem__(self, index):
         self._treeview._call(None, self._treeview, 'delete', self._data[index])
@@ -370,10 +389,9 @@ class TreeviewRowList(MutableSequence):
         if not isinstance(row, TreeviewRow):
             row = TreeviewRow(values=row)
 
-        row.assign(self._treeview)
         self._treeview._call(None, self._treeview, 'insert', '', index, '-id',
                              row)
-        row.config.push()
+        row._assign(self._treeview)
         self._data.insert(index, row)
 
     def move(self, from_pos, to_pos):
@@ -406,11 +424,11 @@ class Treeview(ChildMixin, Widget):
     _widget_name = 'ttk::treeview'
     tk_class_name = 'Treeview'
 
-    def __init__(self, parent, **kwargs):
+    def __init__(self, parent, *, rows=[], columns=[], **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.rows = TreeviewRowList(self)
-        self.columns = TreeviewColumnList(self)
+        self.rows = TreeviewRowList(self, rows)
+        self.columns = TreeviewColumnList(self, columns)
 
     def _init_config(self):
         super()._init_config()
