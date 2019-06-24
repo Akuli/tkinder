@@ -13,5 +13,5 @@ keywords = "pythonic tk tcl tkinter gui beginner"
 
 [tool.flit.metadata.requires-extra]
 # lxml is in soup_viewer because examples/soup.py does BeautifulSoup(string, 'lxml')
-image_loader = ["pillow", "reportlab", "svglib", "lxml"]
+image_loader = ["pillow", "reportlab", "svglib==0.9.0", "lxml"]
 soup_viewer = ["beautifulsoup4", "lxml"]
