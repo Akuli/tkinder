@@ -151,13 +151,12 @@ class TreeviewColumn:
     def _assign(self, treeview):
         # Assign column to given treeview
         self._treeview = treeview
-        command_handler = self._creation_opts.pop('command', None)
-
-        if command_handler:
-            self.config['command'].connect(command_handler)
 
         for name, value in self._creation_opts.items():
-            self.config[name] = value
+            if name != 'command':
+                self.config[name] = value
+            else:
+                self.config['command'].connect(value)
 
     @make_thread_safe
     def to_tcl(self):

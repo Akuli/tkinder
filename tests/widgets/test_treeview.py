@@ -53,7 +53,10 @@ def test_treeview_columns_creation():
     ])
 
     treeview.columns.append('c')
-    treeview.columns.append(teek.TreeviewColumn(text='d'))
+    treeview.columns.append(teek.TreeviewColumn(
+        text='d',
+        command=lambda: print()
+    ))
     assert len(treeview.columns) == 5
     assert treeview.columns[1].config['text'] == 'a'
     assert treeview.columns[2].config['text'] == 'b'
@@ -74,6 +77,17 @@ def test_treeview_rows_creation():
     assert treeview.rows[1].config['values'] == ['3', '4']
     assert treeview.rows[2].config['values'] == ['5', '6']
     assert treeview.rows[3].config['values'] == ['7', '8']
+
+
+def test_treeview_not_added():
+    row = teek.TreeviewRow()
+    col = teek.TreeviewColumn()
+
+    with pytest.raises(RuntimeError):
+        row.config['values'] = ['1', '2']
+
+    with pytest.raises(RuntimeError):
+        col.config['text'] = 'title'
 
 
 def test_treeview_columns_list():
