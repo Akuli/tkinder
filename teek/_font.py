@@ -1,6 +1,7 @@
 import itertools
 
 import teek
+from teek._tcl_calls import to_tcl
 
 flatten = itertools.chain.from_iterable
 
@@ -113,7 +114,7 @@ font
         """
         Returns the font description passed to ``Font(font_description)``.
         """
-        return self._font_description
+        return to_tcl(self._font_description)
 
     def measure(self, text):
         """
