@@ -3,44 +3,55 @@ from collections.abc import MutableSequence, Iterable
 
 import teek
 from teek._widgets.base import Widget, ChildMixin
-from teek._structures import ConfigDict
+from teek._structures import ConfigDict, CgetConfigureConfigDict
 from teek._tcl_calls import make_thread_safe
 
 
-class MultiHandlerConfigDict(ConfigDict):
-    """
-    Config dictionary which allows multiple handler functions for getting and
-    setting options
-    """
-
-    def __init__(self):
+class OptionConfigDict(ConfigDict):
+    def __init__(self, caller_func):
         super().__init__()
-
-        # Handler functions
-        self._handlers = {}
+        self._caller_func = caller_func
 
     def _set(self, option, value):
-        handlers = (self._handlers[option] if option in self._handlers
-                    else self._handlers['*'])
-
-        if not isinstance(handlers, Iterable):
-            handlers = [handlers]
-
-        for handler in handlers:
-            handler(None, option, value)
+        self._caller_func(None, '-' + option, value)
 
     def _get(self, option):
-        handler = (self._handlers[option]
-                   if option in self._handlers else self._handlers['*'])
-
-        if isinstance(handler, Iterable):
-            handler = handler[0]
-
-        return handler(self._types.get(option, str), option)
+        return self._caller_func(self._types.get(option, str), '-' + option)
 
     def _list_options(self):
-        return set(list(self._types.keys()) + list(
-            self._special.keys()) + list(self._special_values.keys()))
+        infos = self._caller_func([str])
+        return (infos[i].lstrip('-') for i in range(0, len(infos), 2))
+
+
+class TreeviewColumnHeading:
+    def __init__(self, column):
+        self._column = column
+
+        self.config = OptionConfigDict(self._config_handler)
+        self.config._types.update({
+            'text': str,
+            'image': teek.Image,
+            'anchor': str
+        })
+        self.config._special.update({
+            'command': self._create_click_command
+        })
+        
+    def __repr__(self):
+        # TODO
+        pass
+
+    def _config_handler(self, rettype, *args):
+        self._column._check_added()
+        return self._column._treeview._call(
+            rettype, self._column._treeview, 'heading', self._column, *args
+        )
+
+    def _create_click_command(self):
+        result = teek.Callback()
+        command_string = teek.create_command(result.run)
+        self._config_handler(None, '-command', command_string)
+        return result
 
 
 class TreeviewColumn:
@@ -84,30 +95,22 @@ class TreeviewColumn:
     next_col_num = 0
 
     @make_thread_safe
-    def __init__(self, name=None, **kwargs):
+    def __init__(self, name=None, *, text=None, **kwargs):
         self._name = name or 'C%d' % TreeviewColumn.next_col_num
+        self._text = text
         self._creation_opts = kwargs
         self._treeview = None
 
         TreeviewColumn.next_col_num += 1
 
-        self.config = MultiHandlerConfigDict()
+        self.heading = TreeviewColumnHeading(self)
+
+        self.config = OptionConfigDict(self._config_handler)
         self.config._types.update({
-            'text': str,
             'anchor': str,
             'minwidth': int,
             'width': int,
-            'stretch': bool,
-            'image': teek.Image
-        })
-        self.config._special.update({
-            'command': self._create_click_command
-        })
-        self.config._handlers.update({
-            'text': self._heading_handler,
-            'image': self._heading_handler,
-            'anchor': [self._column_handler, self._heading_handler],
-            '*': self._column_handler
+            'stretch': bool
         })
 
     def __repr__(self):
@@ -121,31 +124,14 @@ class TreeviewColumn:
     def _check_added(self):
         if self._treeview is None:
             raise RuntimeError(
-                "this column hasn't been added to a treeview yet")
+                "the column hasn't been added to a treeview yet"
+            )
 
-    def _heading_handler(self, rettype, option, *args):
+    def _config_handler(self, rettype, *args):
         self._check_added()
-
-        if args:
-            self._creation_opts[option] = args[0]
-
-        return self._treeview._call(rettype, self._treeview, 'heading', self,
-                                    '-' + option, *args)
-
-    def _column_handler(self, rettype, option, *args):
-        self._check_added()
-
-        if args:
-            self._creation_opts[option] = args[0]
-
-        return self._treeview._call(rettype, self._treeview, 'column', self,
-                                    '-' + option, *args)
-
-    def _create_click_command(self):
-        result = teek.Callback()
-        command_string = teek.create_command(result.run)
-        self._heading_handler(None, 'command', command_string)
-        return result
+        return self._treeview._call(
+            rettype, self._treeview, 'column', self, *args
+        )
 
     @make_thread_safe
     def _assign(self, treeview):
@@ -153,10 +139,10 @@ class TreeviewColumn:
         self._treeview = treeview
 
         for name, value in self._creation_opts.items():
-            if name != 'command':
-                self.config[name] = value
-            else:
-                self.config['command'].connect(value)
+            self.config[name] = value
+
+        if self._text is not None:
+            self.heading.config['text'] = self._text
 
     @make_thread_safe
     def to_tcl(self):
@@ -212,16 +198,13 @@ class TreeviewRow:
 
         TreeviewRow.next_row_num += 1
 
-        self.config = MultiHandlerConfigDict()
+        self.config = OptionConfigDict(self._call)
         self.config._types.update({
             'values': [str],
             'text': str,
             'open': bool,
             'tags': [str],
             'image': teek.Image
-        })
-        self.config._handlers.update({
-            '*': self._item_handler
         })
 
     def __repr__(self):
@@ -240,10 +223,15 @@ class TreeviewRow:
             raise RuntimeError(
                 "this column hasn't been added to a treeview yet")
 
-    def _item_handler(self, rettype, option, *args):
+    def _call(self, rettype, option=None, *args):
         self._check_added()
-        return self._treeview._call(rettype, self._treeview, 'item', self,
-                                    '-' + option, *args)
+
+        if option is not None:
+            args = [option] + list(args)
+
+        return self._treeview._call(
+            rettype, self._treeview, 'item', self, *args
+        )
 
     @make_thread_safe
     def _assign(self, treeview):

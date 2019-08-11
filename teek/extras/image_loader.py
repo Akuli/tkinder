@@ -53,7 +53,7 @@ def from_file(file):
         # https://github.com/deeplook/svglib/issues/173
         rlg = svglib.svg2rlg(io.TextIOWrapper(file, encoding='utf-8'))
 
-        with reportlab.graphics.renderPM.drawToPIL(rlg) as pil_image:
+        with reportlab.graphics.renderPM.drawToFile(rlg) as pil_image:
             return from_pil(pil_image)
 
     with PIL.Image.open(file) as pil_image:
