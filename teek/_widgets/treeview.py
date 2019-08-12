@@ -8,6 +8,10 @@ from teek._tcl_calls import make_thread_safe
 
 
 class OptionConfigDict(ConfigDict):
+    """
+    Configuration dictionary like :class:`CgetConfigureConfigDict` but
+    usable for command options.
+    """
     def __init__(self, caller_func):
         super().__init__()
         self._caller_func = caller_func
@@ -24,6 +28,11 @@ class OptionConfigDict(ConfigDict):
 
 
 class TreeviewColumnHeading:
+    """
+    Heading for :class:`TreeviewColumn`. Please note that config options can
+    only be retrieved or set if the associated column is connected to a
+    :class:`Treeview`.
+    """
     def __init__(self, column):
         self._column = column
 
@@ -38,8 +47,12 @@ class TreeviewColumnHeading:
         })
         
     def __repr__(self):
-        # TODO
-        pass
+        if self._column._treeview:
+            info = "text='%s'" % self.config['text']
+        else:
+            info = 'not added to treeview'
+
+        return '%s(%s)' % (self.__class__.__name__, info)
 
     def _config_handler(self, rettype, *args):
         self._column._check_added()
@@ -114,12 +127,12 @@ class TreeviewColumn:
         })
 
     def __repr__(self):
+        repr_str = "%s(%s)" % (self.__class__.__name__, self._name)
+    
         if self._treeview:
-            parts = "text='%s'" % self.config['text']
-        else:
-            parts = 'not added to treeview'
+            repr_str += ' not added to treeview'
 
-        return "%s('%s', %s)" % (self.__class__.__name__, self._name, parts)
+        return repr_str
 
     def _check_added(self):
         if self._treeview is None:
@@ -144,7 +157,6 @@ class TreeviewColumn:
         if self._text is not None:
             self.heading.config['text'] = self._text
 
-    @make_thread_safe
     def to_tcl(self):
         # Only name in column list
         return self._name
@@ -190,7 +202,6 @@ class TreeviewRow:
 
     _next_row_num = 0
 
-    @make_thread_safe
     def __init__(self, name=None, **kwargs):
         self._name = name or 'R%d' % TreeviewRow._next_row_num
         self._creation_opts = kwargs
@@ -241,7 +252,6 @@ class TreeviewRow:
         for name, value in self._creation_opts.items():
             self.config[name] = value
 
-    @make_thread_safe
     def to_tcl(self):
         # Represented by name
         return self._name
@@ -290,6 +300,7 @@ class TreeviewColumnList(MutableSequence):
         for column in init_columns:
             self.append(column)
 
+    @make_thread_safe
     def __setitem__(self, index, column):
         if index == 0 or index <= -len(self):
             raise KeyError('cannot set column #0')
@@ -300,6 +311,7 @@ class TreeviewColumnList(MutableSequence):
         self._data[index] = column
         self._update()
 
+    @make_thread_safe
     def __delitem__(self, index):
         if index == 0:
             raise KeyError('cannot delete column #0')
@@ -307,6 +319,7 @@ class TreeviewColumnList(MutableSequence):
         del self._data[index]
         self._update()
 
+    @make_thread_safe
     def __getitem__(self, index):
         return self._data[index]
 
@@ -324,6 +337,7 @@ class TreeviewColumnList(MutableSequence):
         for column in self._data:
             column._assign(self._treeview)
 
+    @make_thread_safe
     def insert(self, index, column):
         """
         Insert column or column text converted to a column at given index.
@@ -354,13 +368,16 @@ class TreeviewRowList(MutableSequence):
         for row in init_rows:
             self.append(row)
 
+    @make_thread_safe
     def __getitem__(self, index):
         return self._data[index]
 
+    @make_thread_safe
     def __setitem__(self, index, row):
         del self[index]
         self.insert(index, row)
 
+    @make_thread_safe
     def __delitem__(self, index):
         self._treeview._call(None, self._treeview, 'delete', self._data[index])
         del self._data[index]
@@ -368,6 +385,7 @@ class TreeviewRowList(MutableSequence):
     def __len__(self):
         return len(self._data)
 
+    @make_thread_safe
     def insert(self, index, row):
         """
         Insert a row or values converted to a row at the given index.
@@ -381,6 +399,7 @@ class TreeviewRowList(MutableSequence):
         row._assign(self._treeview)
         self._data.insert(index, row)
 
+    @make_thread_safe
     def move(self, from_pos, to_pos):
         """
         Move row at index to other position
@@ -440,6 +459,7 @@ class Treeview(ChildMixin, Widget):
     xview = functools.partialmethod(_xview_or_yview, 'xview')
     yview = functools.partialmethod(_xview_or_yview, 'yview')
 
+    @make_thread_safe
     def sort(self, column_pos, reverse=False):
         """
         Sort all rows according to value of column with given ``column_pos``.
@@ -453,5 +473,6 @@ class Treeview(ChildMixin, Widget):
         sorted_rows.sort(key=lambda r: r.config['values'][column_pos - 1],
                          reverse=reverse)
 
-        for old, row in enumerate(self.rows):
-            self.rows.move(old, sorted_rows.index(row))
+        for index, row in enumerate(self.rows):
+            if self.rows[index] != row:
+                self.rows.move(self.rows.index(row, index), index)
