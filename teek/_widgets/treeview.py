@@ -92,16 +92,16 @@ class TreeviewColumn:
         in :man:`ttk_treeview(3tk)`.
     """
 
-    next_col_num = 0
+    _next_col_num = 0
 
     @make_thread_safe
     def __init__(self, name=None, *, text=None, **kwargs):
-        self._name = name or 'C%d' % TreeviewColumn.next_col_num
+        self._name = name or 'C%d' % TreeviewColumn._next_col_num
         self._text = text
         self._creation_opts = kwargs
         self._treeview = None
 
-        TreeviewColumn.next_col_num += 1
+        TreeviewColumn._next_col_num += 1
 
         self.heading = TreeviewColumnHeading(self)
 
@@ -188,15 +188,15 @@ class TreeviewRow:
         options are documented as ``ITEM OPTIONS`` in :man:`ttk_treeview(3tk)`.
     """
 
-    next_row_num = 0
+    _next_row_num = 0
 
     @make_thread_safe
     def __init__(self, name=None, **kwargs):
-        self._name = name or 'R%d' % TreeviewRow.next_row_num
+        self._name = name or 'R%d' % TreeviewRow._next_row_num
         self._creation_opts = kwargs
         self._treeview = None
 
-        TreeviewRow.next_row_num += 1
+        TreeviewRow._next_row_num += 1
 
         self.config = OptionConfigDict(self._call)
         self.config._types.update({
@@ -291,7 +291,7 @@ class TreeviewColumnList(MutableSequence):
             self.append(column)
 
     def __setitem__(self, index, column):
-        if index == 0:
+        if index == 0 or index <= -len(self):
             raise KeyError('cannot set column #0')
 
         if not isinstance(column, TreeviewColumn):
@@ -329,8 +329,8 @@ class TreeviewColumnList(MutableSequence):
         Insert column or column text converted to a column at given index.
         Note that the column at index 0 cannot be replaced!
         """
-        if index == 0:
-            raise KeyError('cannot insert column at index 0')
+        if index == 0 or index <= -len(self):
+            raise KeyError('cannot insert column at position 0')
 
         # Convert to column
         if not isinstance(column, TreeviewColumn):
