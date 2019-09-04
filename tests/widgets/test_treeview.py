@@ -3,47 +3,58 @@ import pytest
 import teek
 
 
+def test_option_config_dict():
+    args = []
+    cfg_dict = teek._widgets.treeview.OptionConfigDict(lambda *a: args.extend(a))
+
+    args = []
+    cfg_dict._set('option', 'value')
+    assert args == [None, '-option', 'value']
+
+    args = []
+    cfg_dict._get('option')
+    assert args == [str, '-option']
+
+    cfg_dict._caller_func = lambda *a: ['-option', 'value']
+    assert list(cfg_dict._list_options()) == ['option']
+
+
 def test_reprs():
     values = ['a']
     treeview = teek.Treeview(teek.Window())
     col = teek.TreeviewColumn('testcol', text='Test')
-    row = teek.TreeviewRow('testrow', text='Row', values=values)
+    not_added_col = teek.TreeviewColumn()
+    row_root = teek.TreeviewRow('root', text='Root', values=values)
+    row_sub = teek.TreeviewRow(text='Sub')
 
-    assert repr(col) == "TreeviewColumn('testcol', not added to treeview)"
-    assert repr(row) == "TreeviewRow('testrow', not added to treeview)"
+    assert repr(col) == 'TreeviewColumn(testcol, not added to treeview)'
+    assert repr(row_root) == 'TreeviewRow(root, not added to treeview)'
     assert repr(treeview) == '<teek.Treeview widget: contains 1 columns ' \
                              '& 0 rows>'
-    treeview.rows.append(row)
-    assert repr(row) == "TreeviewRow('testrow', text='Row', values=" \
-                        + repr(values) + ")"
+    treeview.rows.append(row_root)
+    assert repr(row_root) == "TreeviewRow(root, text='Root', values=" \
+                        + repr(values) + ', subrows=0)'
     assert repr(treeview) == '<teek.Treeview widget: contains 1 columns ' \
                              '& 1 rows>'
+    assert repr(treeview.rows) == 'TreeviewRowList(root=None, rows=1)'
+    assert repr(treeview.columns) == 'TreeviewColumnList(columns=1)'
+    treeview.rows[0].subrows.append(row_sub)
+    assert repr(row_sub) == "TreeviewRow(R1, text='Sub', values=[], subrows=0)"
+    assert repr(row_root) == "TreeviewRow(root, text='Root', values=['a'], " \
+                             'subrows=1)'
     treeview.columns.append(col)
-    assert repr(col) == "TreeviewColumn('testcol', text='Test')"
+    assert repr(col) == "TreeviewColumn(testcol, text='Test')"
     assert repr(treeview) == '<teek.Treeview widget: contains 2 columns ' \
                              '& 1 rows>'
 
+    assert repr(not_added_col.heading) == 'TreeviewColumnHeading(not added ' \
+                                          'to treeview)'
+    assert repr(col.heading) == "TreeviewColumnHeading(text='Test')"
 
-def test_multi_handler_config_dict():
-    def success_handler(rettype, option, value=None):
-        return 'success1'
 
-    def success2_handler(rettype, option, value=None):
-        return 'success2'
-
-    def generic_handler(rettype, option, value=None):
-        return 'generic'
-
-    config = teek._widgets.treeview.MultiHandlerConfigDict()
-    config._types['test'] = str
-    config._types['generic'] = str
-    config._handlers['test'] = success_handler
-    config._handlers['*'] = generic_handler
-
-    assert config['test'] == 'success1'
-    assert config['generic'] == 'generic'
-    config._handlers['test'] = [success_handler, success2_handler]
-    assert config['test'] == 'success1'
+def test_compare():
+    assert teek.TreeviewColumn('a') == teek.TreeviewColumn('a')
+    assert teek.TreeviewRow('b') == teek.TreeviewRow('b')
 
 
 def test_treeview_columns_creation():
@@ -55,13 +66,19 @@ def test_treeview_columns_creation():
     treeview.columns.append('c')
     treeview.columns.append(teek.TreeviewColumn(
         text='d',
-        command=lambda: print()
+        anchor='w',
+        minwidth=100,
+        width=120,
+        stretch=True
     ))
+    treeview.columns[3].heading.config['command'].connect(print)
+    treeview.columns[3].heading.config['anchor'] = 'w'
+
     assert len(treeview.columns) == 5
-    assert treeview.columns[1].config['text'] == 'a'
-    assert treeview.columns[2].config['text'] == 'b'
-    assert treeview.columns[3].config['text'] == 'c'
-    assert treeview.columns[4].config['text'] == 'd'
+    assert treeview.columns[1].heading.config['text'] == 'a'
+    assert treeview.columns[2].heading.config['text'] == 'b'
+    assert treeview.columns[3].heading.config['text'] == 'c'
+    assert treeview.columns[4].heading.config['text'] == 'd'
 
 
 def test_treeview_rows_creation():
@@ -72,11 +89,17 @@ def test_treeview_rows_creation():
 
     treeview.rows.append(['5', '6'])
     treeview.rows.append(teek.TreeviewRow(values=[7, '8']))
+    treeview.rows[2].subrows.append(['9', '10'])
+    treeview.rows[2].subrows.append(['11', '12'])
+
     assert len(treeview.rows) == 4
     assert treeview.rows[0].config['values'] == ['1', '2']
     assert treeview.rows[1].config['values'] == ['3', '4']
     assert treeview.rows[2].config['values'] == ['5', '6']
     assert treeview.rows[3].config['values'] == ['7', '8']
+    assert len(treeview.rows[2].subrows) == 2
+    assert treeview.rows[2].subrows[0].config['values'] == ['9', '10']
+    assert treeview.rows[2].subrows[1].config['values'] == ['11', '12']
 
 
 def test_treeview_not_added():
@@ -87,7 +110,10 @@ def test_treeview_not_added():
         row.config['values'] = ['1', '2']
 
     with pytest.raises(RuntimeError):
-        col.config['text'] = 'title'
+        col.config['stretch'] = True
+
+    with pytest.raises(RuntimeError):
+        col.heading.config['text'] = 'title'
 
 
 def test_treeview_columns_list():
@@ -95,38 +121,63 @@ def test_treeview_columns_list():
 
     treeview.columns.append('a')
     assert len(treeview.columns) == 2
-    assert treeview.columns[1].config['text'] == 'a'
+    assert treeview.columns[1].heading.config['text'] == 'a'
     treeview.columns.insert(1, 'b')
     assert len(treeview.columns) == 3
-    assert treeview.columns[1].config['text'] == 'b'
-    assert treeview.columns[2].config['text'] == 'a'
+    assert treeview.columns[1].heading.config['text'] == 'b'
+    assert treeview.columns[2].heading.config['text'] == 'a'
     treeview.columns[1] = teek.TreeviewColumn(text='c')
     treeview.columns[2] = 'd'
     assert len(treeview.columns) == 3
-    assert treeview.columns[1].config['text'] == 'c'
-    assert treeview.columns[2].config['text'] == 'd'
+    assert treeview.columns[1].heading.config['text'] == 'c'
+    assert treeview.columns[2].heading.config['text'] == 'd'
     del treeview.columns[1]
     assert len(treeview.columns) == 2
-    assert treeview.columns[1].config['text'] == 'd'
+    assert treeview.columns[1].heading.config['text'] == 'd'
 
 
 def test_treeview_rows_list():
     treeview = teek.Treeview(teek.Window())
 
     treeview.rows.append(['1'])
+    treeview.rows[0].subrows.append(['11'])
+
     assert len(treeview.rows) == 1
+    assert len(treeview.rows[0].subrows) == 1
     assert treeview.rows[0].config['values'] == ['1']
+    assert treeview.rows[0].subrows[0].config['values'] == ['11']
+
     treeview.rows.insert(0, ['2'])
+    treeview.rows[0].subrows.insert(0, ['22'])
+
     assert len(treeview.rows) == 2
+    assert len(treeview.rows[0].subrows) == 1
+    assert len(treeview.rows[1].subrows) == 1
     assert treeview.rows[0].config['values'] == ['2']
     assert treeview.rows[1].config['values'] == ['1']
+    assert treeview.rows[0].subrows[0].config['values'] == ['22']
+    assert treeview.rows[1].subrows[0].config['values'] == ['11']
+
     treeview.rows[0] = teek.TreeviewRow(values=['3'])
     treeview.rows[1] = ['4']
+    treeview.rows[0].subrows.insert(0, teek.TreeviewRow(values=['11']))
+    treeview.rows[1].subrows.insert(0, ['22'])
+    treeview.rows[0].subrows[0] = teek.TreeviewRow(values=['33'])
+    treeview.rows[1].subrows[0] = ['44']
+
     assert len(treeview.rows) == 2
+    assert len(treeview.rows[0].subrows) == 1
+    assert len(treeview.rows[1].subrows) == 1
     assert treeview.rows[0].config['values'] == ['3']
     assert treeview.rows[1].config['values'] == ['4']
+    assert treeview.rows[0].subrows[0].config['values'] == ['33']
+    assert treeview.rows[1].subrows[0].config['values'] == ['44']
+
     del treeview.rows[0]
+    del treeview.rows[0].subrows[0]
+
     assert len(treeview.rows) == 1
+    assert len(treeview.rows[0].subrows) == 0
     assert treeview.rows[0].config['values'] == ['4']
 
 
@@ -134,8 +185,8 @@ def test_treeview_first_column():
     treeview = teek.Treeview(teek.Window())
 
     assert len(treeview.columns) == 1
-    treeview.columns[0].config['text'] = 'first'
-    assert treeview.columns[0].config['text'] == 'first'
+    treeview.columns[0].heading.config['text'] = 'first'
+    assert treeview.columns[0].heading.config['text'] == 'first'
     treeview.columns.append('second')
     assert len(treeview.columns) == 2
 
@@ -149,29 +200,26 @@ def test_treeview_first_column():
         treeview.columns.insert(0, teek.TreeviewColumn())
 
 
-def test_treeview_rows_move():
-    treeview = teek.Treeview(teek.Window())
-    treeview.rows.append(['a'])
-    treeview.rows.append(['b'])
-
-    assert len(treeview.rows) == 2
-    assert treeview.rows[0].config['values'] == ['a']
-    assert treeview.rows[1].config['values'] == ['b']
-    treeview.rows.move(1, 0)
-    assert len(treeview.rows) == 2
-    assert treeview.rows[0].config['values'] == ['b']
-    assert treeview.rows[1].config['values'] == ['a']
-
-
 def test_treeview_row_selection():
     treeview = teek.Treeview(teek.Window())
-    treeview.rows.append(['a'])
+    row = teek.TreeviewRow(values=['a'])
 
-    assert not treeview.rows[0].selected
-    treeview.rows[0].select()
-    assert treeview.rows[0].selected
-    treeview.rows[0].deselect()
-    assert not treeview.rows[0].selected
+    with pytest.raises(RuntimeError):
+        row.selected
+
+    with pytest.raises(RuntimeError):
+        row.select()
+
+    with pytest.raises(RuntimeError):
+        row.deselect()
+
+    treeview.rows.append(row)
+
+    assert not row.selected
+    row.select()
+    assert row.selected
+    row.deselect()
+    assert not row.selected
 
 
 def test_treeview_sort():
@@ -179,25 +227,39 @@ def test_treeview_sort():
     treeview.rows.append(['b'])
     treeview.rows.append(['a'])
     treeview.rows.append(['c'])
+    treeview.rows[1].subrows.append(['e'])
+    treeview.rows[1].subrows.append(['d'])
 
     assert len(treeview.rows) == 3
+    assert len(treeview.rows[1].subrows) == 2
     assert treeview.rows[0].config['values'] == ['b']
     assert treeview.rows[1].config['values'] == ['a']
     assert treeview.rows[2].config['values'] == ['c']
+    assert treeview.rows[1].subrows[0].config['values'] == ['e']
+    assert treeview.rows[1].subrows[1].config['values'] == ['d']
 
-    with pytest.raises(KeyError):
-        treeview.sort(0)
+    with pytest.raises(IndexError):
+        treeview.rows.sort(0)
 
-    treeview.sort(1, reverse=False)
+    treeview.rows.sort(1, reverse=False)
+
     assert len(treeview.rows) == 3
+    assert len(treeview.rows[0].subrows) == 2
     assert treeview.rows[0].config['values'] == ['a']
     assert treeview.rows[1].config['values'] == ['b']
     assert treeview.rows[2].config['values'] == ['c']
-    treeview.sort(1, reverse=True)
+    assert treeview.rows[0].subrows[0].config['values'] == ['d']
+    assert treeview.rows[0].subrows[1].config['values'] == ['e']
+
+    treeview.rows.sort(1, reverse=True)
+
     assert len(treeview.rows) == 3
+    assert len(treeview.rows[2].subrows) == 2
     assert treeview.rows[0].config['values'] == ['c']
     assert treeview.rows[1].config['values'] == ['b']
     assert treeview.rows[2].config['values'] == ['a']
+    assert treeview.rows[2].subrows[0].config['values'] == ['e']
+    assert treeview.rows[2].subrows[1].config['values'] == ['d']
 
 
 def test_treeview_tcl():

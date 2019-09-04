@@ -49,7 +49,7 @@ class TreeviewColumnHeading:
         
     def __repr__(self):
         if self._column._treeview:
-            info = "text=%r" % self.config['text']
+            info = 'text=%r' % self.config['text']
         else:
             info = 'not added to treeview'
 
@@ -127,12 +127,20 @@ class TreeviewColumn:
         })
 
     def __repr__(self):
-        repr_str = "%s(%s)" % (self.__class__.__name__, self._name)
+        repr_str = '%s(%s' % (
+            self.__class__.__name__,
+            self._name
+        )
     
-        if self._treeview:
-            repr_str += ' not added to treeview'
+        if self._treeview is None:
+            repr_str += ', not added to treeview'
+        else:
+            repr_str += ', text=%r' % self.heading.config['text']
 
-        return repr_str
+        return repr_str + ')'
+
+    def __eq__(self, other):
+        return isinstance(other, TreeviewColumn) and self._name == other._name
 
     def _check_added(self):
         if self._treeview is None:
@@ -166,11 +174,18 @@ class TreeviewRowList(MutableSequence):
     List containing all rows of a treeview
     """
 
-    def __init__(self, root=None, *, _treeview=None):
+    def __init__(self, treeview, root=None):
         super().__init__()
 
         self._root = root
-        self.treeview = _treeview
+        self._treeview = treeview
+
+    def __repr__(self):
+        return '%s(root=%r, rows=%d)' % (
+            self.__class__.__name__,
+            self._root,
+            len(self)
+        )
 
     @make_thread_safe
     def __getitem__(self, index):
@@ -183,56 +198,62 @@ class TreeviewRowList(MutableSequence):
 
     @make_thread_safe
     def __delitem__(self, index):
-        self._check_added()
-        self.treeview._call(None, self._treeview, 'delete', self[index])
+        self._treeview._call(None, self._treeview, 'delete', self[index])
 
     @make_thread_safe
     def __len__(self):
         return len(self._get_all_rows())
 
     def _get_all_rows(self):
-        self._check_added()
-
-        ids = self.treeview._call([str], self.treeview, 'children', self._root)
+        ids = self._treeview._call([str], self._treeview, 'children', self._root)
         rows = []
 
         for id_ in ids:
-            rows.append(TreeviewRow(name=id_, _treeview=self.treeview))
+            row = TreeviewRow(name=id_)
+            row._assign(treeview=self._treeview, root=self._root, set_config=False)
+            rows.append(row)
 
         return rows
-
-    def _check_added(self):
-        if self.treeview is None:
-            raise RuntimeError(
-                "this row hasn't been added to a treeview yet")
 
     @make_thread_safe
     def insert(self, index, row):
         """
         Insert a row or values converted to a row at the given index.
         """
-        self._check_added()
-
         # Convert to row
         if not isinstance(row, TreeviewRow):
-            row = TreeviewRow(values=row, root=self._root)
+            row = TreeviewRow(values=row)
 
-        self.treeview._call(
-            None, self.treeview, 'insert', self._root, index, '-id', row
+        self._treeview._call(
+            None, self._treeview, 'insert', self._root, index, '-id', row
         )
-        row.treeview = self.treeview
+        
+        row._assign(treeview=self._treeview, root=self._root)
 
     @make_thread_safe
-    def move(self, from_pos, to_pos):
+    def sort(self, column_pos, reverse=False):
         """
-        Move row at index to other position
+        Sort all rows according to value of column with given ``column_pos``.
+        The direction of the sorting can be set with ``reverse``. If this value
+        is true, the rows are sorted in ascending order.
         """
-        row = self[from_pos]
-        del self[from_pos]
-        self.insert(to_pos, row)
+        if column_pos < 1:
+            raise IndexError('column position must be greater or equal 1')
+
+        sorted_rows = list(self).copy()
+        sorted_rows.sort(key=lambda r: r.config['values'][column_pos - 1],
+                         reverse=reverse)
+
+        for to_pos, row in enumerate(sorted_rows):
+            from_pos = self.index(row)
+            
+            if from_pos != to_pos:
+                row.move(to_pos)
+
+            row.subrows.sort(column_pos, reverse)
 
 
-class TreeviewRow(TreeviewRowList):
+class TreeviewRow:
     """
     Represents a row of a treeview widget or one which is ready to be added
     to a treeview widget. The row holds all the column values and additional
@@ -272,11 +293,11 @@ class TreeviewRow(TreeviewRowList):
 
     _next_row_num = 0
 
-    def __init__(self, name=None, root=None, *, _treeview=None, **kwargs):
+    def __init__(self, name=None, **kwargs):
         self._name = name or 'R%d' % TreeviewRow._next_row_num
         self._creation_opts = kwargs
-        self._treeview = root._treeview if root else _treeview
-        self._root = root._name if root else ''
+        self._treeview = None
+        self._root = None
 
         TreeviewRow._next_row_num += 1
 
@@ -289,19 +310,24 @@ class TreeviewRow(TreeviewRowList):
             'image': teek.Image
         })
 
-        super().__init__(root=self._root, _treeview=self._treeview)
+        self.subrows = TreeviewRowList(treeview=self._treeview, root=self)
 
     def __repr__(self):
+        repr_str = '%s(%s' % (self.__class__.__name__, self._name)
+
         if self._treeview:
-            parts = "root=%r, text=%r, values=%r" % (
-                self._root,
+            repr_str += ', text=%r, values=%r, subrows=%d' % (
                 self.config['text'],
-                self.config['values']
+                self.config['values'],
+                len(self.subrows)
             )
         else:
-            parts = 'not added to treeview'
+            repr_str += ', not added to treeview'
 
-        return "%s('%s', %s)" % (self.__class__.__name__, self._name, parts)
+        return repr_str + ')'
+
+    def __eq__(self, other):
+        return isinstance(other, TreeviewRow) and self._name == other._name
 
     def _config_handler(self, rettype, option=None, *args):
         self._check_added()
@@ -309,19 +335,22 @@ class TreeviewRow(TreeviewRowList):
         if option is not None:
             args = [option] + list(args)
 
-        return self.treeview._call(
-            rettype, self.treeview, 'item', self, *args
+        return self._treeview._call(
+            rettype, self._treeview, 'item', self, *args
         )
 
-    @property
-    def treeview(self):
-        return self._treeview
+    def _check_added(self):
+        if self._treeview is None:
+            raise RuntimeError(
+                "this row hasn't been added to a treeview yet")
 
-    @treeview.setter
-    def treeview(self, item):
-        self._treeview = item
+    def _assign(self, treeview, root=None, set_config=True):
+        self._treeview = treeview
+        self._root = root
 
-        if item is not None:
+        self.subrows._treeview = treeview
+
+        if treeview is not None and set_config:
             for name, value in self._creation_opts.items():
                 self.config[name] = value
 
@@ -331,7 +360,7 @@ class TreeviewRow(TreeviewRowList):
         Get current selection state
         """
         self._check_added()
-        return self._name in self.treeview._call([str], self.treeview,
+        return self._name in self._treeview._call([str], self._treeview,
                                                   'selection')
 
     @make_thread_safe
@@ -340,7 +369,7 @@ class TreeviewRow(TreeviewRowList):
         Add row to current selection
         """
         self._check_added()
-        self.treeview._call(None, self.treeview, 'selection', 'add', self)
+        self._treeview._call(None, self._treeview, 'selection', 'add', self)
 
     @make_thread_safe
     def deselect(self):
@@ -348,12 +377,21 @@ class TreeviewRow(TreeviewRowList):
         Remove row from current selection
         """
         self._check_added()
-        self.treeview._call(None, self.treeview, 'selection', 'remove', self)
-    
+        self._treeview._call(None, self._treeview, 'selection', 'remove', self)
+
+    @make_thread_safe
+    def move(self, to_pos):
+        """
+        Move row at index to other position
+        """
+        self._treeview._call(
+            None, self._treeview, 'move', self, self._root, to_pos
+        )
+
     def to_tcl(self):
         # Represented by name
         return self._name
-    
+
 
 class TreeviewColumnList(MutableSequence):
     """
@@ -373,6 +411,12 @@ class TreeviewColumnList(MutableSequence):
         for column in init_columns:
             self.append(column)
 
+    def __repr__(self):
+        return '%s(columns=%d)' % (
+            self.__class__.__name__,
+            len(self)
+        )
+
     @make_thread_safe
     def __setitem__(self, index, column):
         if index == 0 or index <= -len(self):
@@ -382,7 +426,7 @@ class TreeviewColumnList(MutableSequence):
             column = TreeviewColumn(text=column)
 
         self._data[index] = column
-        self._update()
+        self._assign()
 
     @make_thread_safe
     def __delitem__(self, index):
@@ -390,7 +434,7 @@ class TreeviewColumnList(MutableSequence):
             raise KeyError('cannot delete column #0')
 
         del self._data[index]
-        self._update()
+        self._assign()
 
     @make_thread_safe
     def __getitem__(self, index):
@@ -400,7 +444,7 @@ class TreeviewColumnList(MutableSequence):
         # Length includes column 0
         return len(self._data)
 
-    def _update(self):
+    def _assign(self):
         """
         Update columns of widget and rebuild column objects
         """
@@ -424,7 +468,7 @@ class TreeviewColumnList(MutableSequence):
             column = TreeviewColumn(text=column)
 
         self._data.insert(index, column)
-        self._update()
+        self._assign()
 
 
 class Treeview(ChildMixin, Widget):
@@ -451,7 +495,7 @@ class Treeview(ChildMixin, Widget):
     def __init__(self, parent, *, rows=[], columns=[], **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.rows = TreeviewRowList(_treeview=self)
+        self.rows = TreeviewRowList(treeview=self)
         self.columns = TreeviewColumnList(self, columns)
 
         for row in rows:
@@ -479,20 +523,3 @@ class Treeview(ChildMixin, Widget):
 
     xview = functools.partialmethod(_xview_or_yview, 'xview')
     yview = functools.partialmethod(_xview_or_yview, 'yview')
-
-    def sort(self, column_pos, reverse=False):
-        """
-        Sort all rows according to value of column with given ``column_pos``.
-        The direction of the sorting can be set with ``reverse``. If this value
-        is true, the rows are sorted in ascending order.
-        """
-        if column_pos < 1:
-            raise KeyError('column position must be greater or equal 1')
-
-        sorted_rows = self.rows._data.copy()
-        sorted_rows.sort(key=lambda r: r.config['values'][column_pos - 1],
-                         reverse=reverse)
-
-        for index, row in enumerate(self.rows):
-            if self.rows[index] != row:
-                self.rows.move(self.rows.index(row, index), index)
