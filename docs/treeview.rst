@@ -17,15 +17,17 @@ Let's look at an example.
     treeview.pack(fill='both', expand=True)
 
     treeview.rows.append(['John', 'Star', 32])
-    treeview.rows.append(['Patrick', 'Tram', 19])
+    treeview.rows.append(teek.TreeviewRow(values=['Patrick', 'Tram', 19]))
+
+    treeview.rows[1].subrows.append(['Sam', 'Green', 87])
 
     window.geometry(300, 200)
     window.on_delete_window.connect(teek.quit)
     teek.run()
 
 This program displays a treeview widget with overall 4 columns (first + value 
-columns) and 2 rows. The first column is for description purposes only and 
-cannot contain any data. Let's go trough some of the code.
+columns) and 2 rows with one nested row. The first column is for description
+purposes only and cannot contain any data. Let's go trough some of the code.
 
 ::
 
@@ -40,7 +42,7 @@ appends it to the column list of the treeview.
 
 This code creates a :class:`.TreeviewRow` with the given values (1. column: 
 *John*, 2. column: *Star*, 3. column: *32*) and appends it to the rows of the 
-treeview.
+treeview. The next line shows the long form of the row creation.
 
 The *rows* and *columns* attributes of the :class:`.Treeview` behave like normal
  lists and therefore, items can be inserted and deleted as with lists. The only 

@@ -24,7 +24,7 @@ treeview.columns[1].heading.config['command'].connect(lambda: print('click'))
 treeview.rows.append(teek.TreeviewRow(values=(9, 10, 11, 12)))
 treeview.rows.append([13, 14, 15, 16])
 
-treeview.rows[2].append(teek.TreeviewRow(values=(19, 20, 21, 22)))
+treeview.rows[2].subrows.append(teek.TreeviewRow(values=(19, 20, 21, 22)))
 
 treeview.rows[0].config['text'] = 'text'
 

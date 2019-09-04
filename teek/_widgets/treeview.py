@@ -33,7 +33,6 @@ class TreeviewColumnHeading:
     only be retrieved or set if the associated column is connected to a
     :class:`Treeview`.
     """
-
     def __init__(self, column):
         self._column = column
 
@@ -143,6 +142,9 @@ class TreeviewColumn:
         return isinstance(other, TreeviewColumn) and self._name == other._name
 
     def _check_added(self):
+        """
+        Check if column is added to treeview
+        """
         if self._treeview is None:
             raise RuntimeError(
                 "the column hasn't been added to a treeview yet"
@@ -155,7 +157,9 @@ class TreeviewColumn:
         )
 
     def _assign(self, treeview):
-        # Assign column to given treeview
+        """
+        Assign column to given treeview
+        """
         self._treeview = treeview
 
         for name, value in self._creation_opts.items():
@@ -171,9 +175,12 @@ class TreeviewColumn:
 
 class TreeviewRowList(MutableSequence):
     """
-    List containing all rows of a treeview
+    List containing all rows of a treeview. This class is used for all rows and
+    nested rows (subrows).
+    
+    Note, that instances of :class:`TreeviewRowList` must not be created
+    manually. It is accessible through the `.rows` and `.subrows` attributes.
     """
-
     def __init__(self, treeview, root=None):
         super().__init__()
 
@@ -205,12 +212,17 @@ class TreeviewRowList(MutableSequence):
         return len(self._get_all_rows())
 
     def _get_all_rows(self):
-        ids = self._treeview._call([str], self._treeview, 'children', self._root)
+        """
+        Get a list of all rows created for a root node.
+        """
+        ids = self._treeview._call([str], self._treeview, 'children',
+                                   self._root)
         rows = []
 
         for id_ in ids:
             row = TreeviewRow(name=id_)
-            row._assign(treeview=self._treeview, root=self._root, set_config=False)
+            row._assign(treeview=self._treeview, root=self._root,
+                        set_config=False)
             rows.append(row)
 
         return rows
@@ -285,12 +297,17 @@ class TreeviewRow:
     There are never multiple :class:`TreeviewRow` objects that represent the
     same row.
 
+    :class:`TreeviewRow` objects can also contain nested rows (subrows). They
+    are created like normal rows but with the `.subrows` attribute:
+    ::
+
+        treeview.rows[0].subrows.append(teek.TreeviewRow(values=['a', 'b'])
+
     .. attribute:: config
 
         Similar to the ``config`` attribute that widgets have. The available
         options are documented as ``ITEM OPTIONS`` in :man:`ttk_treeview(3tk)`.
     """
-
     _next_row_num = 0
 
     def __init__(self, name=None, **kwargs):
@@ -340,11 +357,19 @@ class TreeviewRow:
         )
 
     def _check_added(self):
+        """
+        Check if row is added to treeview.
+        """
         if self._treeview is None:
             raise RuntimeError(
                 "this row hasn't been added to a treeview yet")
 
     def _assign(self, treeview, root=None, set_config=True):
+        """
+        Internal method for assigning a treeview and a root node to current
+        row.
+        The `set_config` argument specifies if init options should be set.
+        """
         self._treeview = treeview
         self._root = root
 
@@ -357,7 +382,7 @@ class TreeviewRow:
     @property
     def selected(self):
         """
-        Get current selection state
+        Get current selection state.
         """
         self._check_added()
         return self._name in self._treeview._call([str], self._treeview,
@@ -366,7 +391,7 @@ class TreeviewRow:
     @make_thread_safe
     def select(self):
         """
-        Add row to current selection
+        Add row to current selection.
         """
         self._check_added()
         self._treeview._call(None, self._treeview, 'selection', 'add', self)
@@ -374,7 +399,7 @@ class TreeviewRow:
     @make_thread_safe
     def deselect(self):
         """
-        Remove row from current selection
+        Remove row from current selection.
         """
         self._check_added()
         self._treeview._call(None, self._treeview, 'selection', 'remove', self)
@@ -382,7 +407,7 @@ class TreeviewRow:
     @make_thread_safe
     def move(self, to_pos):
         """
-        Move row at index to other position
+        Move row at index to other position.
         """
         self._treeview._call(
             None, self._treeview, 'move', self, self._root, to_pos
@@ -395,9 +420,11 @@ class TreeviewRow:
 
 class TreeviewColumnList(MutableSequence):
     """
-    List containing all columns of a treeview
-    """
+    List containing all columns of a treeview.
 
+    Note, that instances of :class:`TreeviewColumnList` must not be created
+    manually. It is accessible through the `.columns` attribute.
+    """
     def __init__(self, treeview, init_columns=[]):
         super().__init__()
 
@@ -446,7 +473,7 @@ class TreeviewColumnList(MutableSequence):
 
     def _assign(self):
         """
-        Update columns of widget and rebuild column objects
+        Update columns of widget and rebuild column objects.
         """
         self._treeview._call(None, self._treeview, 'configure', '-columns',
                              self._data[1:])
@@ -480,15 +507,8 @@ class Treeview(ChildMixin, Widget):
     ``column`` property. In general, these properties behave like a
     :class:`list` of :class:`TreeviewRow` or :class:`TreeviewColumn` objects.
 
-    If you want to move a row, use the ``move`` method of the ``rows`` property
-    like this:
-    ::
-
-        treeview.rows.move(2, 0) # move row at index 2 to index 0
-
     Manual page: :man:`ttk_treeview(3tk)`
     """
-
     _widget_name = 'ttk::treeview'
     tk_class_name = 'Treeview'
 
