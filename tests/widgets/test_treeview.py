@@ -5,7 +5,9 @@ import teek
 
 def test_option_config_dict():
     args = []
-    cfg_dict = teek._widgets.treeview.OptionConfigDict(lambda *a: args.extend(a))
+    cfg_dict = teek._widgets.treeview.OptionConfigDict(
+        lambda *a: args.extend(a)
+    )
 
     args = []
     cfg_dict._set('option', 'value')
@@ -33,7 +35,7 @@ def test_reprs():
                              '& 0 rows>'
     treeview.rows.append(row_root)
     assert repr(row_root) == "TreeviewRow(root, text='Root', values=" \
-                        + repr(values) + ', subrows=0)'
+                             + repr(values) + ', subrows=0)'
     assert repr(treeview) == '<teek.Treeview widget: contains 1 columns ' \
                              '& 1 rows>'
     assert repr(treeview.rows) == 'TreeviewRowList(root=None, rows=1)'

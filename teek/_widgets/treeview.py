@@ -1,9 +1,9 @@
 import functools
-from collections.abc import MutableSequence, Iterable
+from collections.abc import MutableSequence
 
 import teek
 from teek._widgets.base import Widget, ChildMixin
-from teek._structures import ConfigDict, CgetConfigureConfigDict
+from teek._structures import ConfigDict
 from teek._tcl_calls import make_thread_safe
 
 
@@ -45,7 +45,7 @@ class TreeviewColumnHeading:
         self.config._special.update({
             'command': self._create_click_command
         })
-        
+
     def __repr__(self):
         if self._column._treeview:
             info = 'text=%r' % self.config['text']
@@ -130,7 +130,7 @@ class TreeviewColumn:
             self.__class__.__name__,
             self._name
         )
-    
+
         if self._treeview is None:
             repr_str += ', not added to treeview'
         else:
@@ -177,7 +177,7 @@ class TreeviewRowList(MutableSequence):
     """
     List containing all rows of a treeview. This class is used for all rows and
     nested rows (subrows).
-    
+
     Note, that instances of :class:`TreeviewRowList` must not be created
     manually. It is accessible through the `.rows` and `.subrows` attributes.
     """
@@ -239,7 +239,7 @@ class TreeviewRowList(MutableSequence):
         self._treeview._call(
             None, self._treeview, 'insert', self._root, index, '-id', row
         )
-        
+
         row._assign(treeview=self._treeview, root=self._root)
 
     @make_thread_safe
@@ -258,7 +258,7 @@ class TreeviewRowList(MutableSequence):
 
         for to_pos, row in enumerate(sorted_rows):
             from_pos = self.index(row)
-            
+
             if from_pos != to_pos:
                 row.move(to_pos)
 
