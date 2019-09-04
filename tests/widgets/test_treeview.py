@@ -27,7 +27,7 @@ def test_reprs():
     col = teek.TreeviewColumn('testcol', text='Test')
     not_added_col = teek.TreeviewColumn()
     row_root = teek.TreeviewRow('root', text='Root', values=values)
-    row_sub = teek.TreeviewRow(text='Sub')
+    row_sub = teek.TreeviewRow('sub', text='Sub')
 
     assert repr(col) == 'TreeviewColumn(testcol, not added to treeview)'
     assert repr(row_root) == 'TreeviewRow(root, not added to treeview)'
@@ -41,7 +41,8 @@ def test_reprs():
     assert repr(treeview.rows) == 'TreeviewRowList(root=None, rows=1)'
     assert repr(treeview.columns) == 'TreeviewColumnList(columns=1)'
     treeview.rows[0].subrows.append(row_sub)
-    assert repr(row_sub) == "TreeviewRow(R1, text='Sub', values=[], subrows=0)"
+    assert repr(row_sub) == "TreeviewRow(sub, text='Sub', values=[], " \
+                            'subrows=0)'
     assert repr(row_root) == "TreeviewRow(root, text='Root', values=['a'], " \
                              'subrows=1)'
     treeview.columns.append(col)
