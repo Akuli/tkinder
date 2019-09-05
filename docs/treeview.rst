@@ -44,9 +44,9 @@ This code creates a :class:`.TreeviewRow` with the given values (1. column:
 *John*, 2. column: *Star*, 3. column: *32*) and appends it to the rows of the 
 treeview. The next line shows the long form of the row creation.
 
-The *rows* and *columns* attributes of the :class:`.Treeview` behave like normal
- lists and therefore, items can be inserted and deleted as with lists. The only 
-exception is the manipulation of the first column which is prohibited. 
+The *rows* and *columns* attributes of the :class:`.Treeview` behave like 
+normal lists and therefore, items can be inserted and deleted as with lists. 
+The only exception is the manipulation of the first column which is prohibited. 
 
 Here is some reference:
 

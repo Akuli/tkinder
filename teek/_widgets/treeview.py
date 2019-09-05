@@ -407,7 +407,7 @@ class TreeviewRow:
     @make_thread_safe
     def move(self, to_pos):
         """
-        Move row at index to other position.
+        Move row to other position.
         """
         self._treeview._call(
             None, self._treeview, 'move', self, self._root, to_pos
