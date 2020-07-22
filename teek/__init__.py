@@ -45,5 +45,6 @@ from teek._widgets.misc import (
     Progressbar, Scrollbar, Separator, Spinbox)
 from teek._widgets.notebook import Notebook, NotebookTab
 from teek._widgets.text import Text
+from teek._widgets.treeview import Treeview, TreeviewColumn, TreeviewRow
 from teek._widgets.windows import Window, Toplevel
 from teek import dialog, extras

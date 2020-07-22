@@ -107,6 +107,7 @@ def all_widgets():
         teek.Label(window),
         teek.LabelFrame(window),
         teek.Notebook(window),
+        teek.Treeview(window),
         teek.Menu(),
         teek.Progressbar(window),
         teek.Scrollbar(window),
